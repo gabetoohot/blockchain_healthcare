@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mining Interface - EHR Blockchain</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Mining Interface</h1>
+        <div class="mb-4">
+            <a href="/" class="btn btn-secondary">Back to Home</a>
+            <a href="/view_records" class="btn btn-primary">View Records</a>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Pending Records</h5>
+            </div>
+            <div class="card-body">
+                <div id="pendingRecords">Loading...</div>
+                <button id="mineButton" class="btn btn-success mt-3">Mine Pending Records</button>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Mining Result</h5>
+            </div>
+            <div class="card-body">
+                <div id="miningResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Load pending records
+        async function loadPendingRecords() {
+            try {
+                const response = await fetch('/pending_records');
+                const data = await response.json();
+                
+                const recordsDiv = document.getElementById('pendingRecords');
+                if (data.count === 0) {
+                    recordsDiv.innerHTML = '<div class="alert alert-info">No pending records to mine</div>';
+                    document.getElementById('mineButton').disabled = true;
+                } else {
+                    let html = `<div class="alert alert-info">${data.count} record(s) pending</div>`;
+                    html += '<div class="table-responsive"><table class="table table-striped">';
+                    html += '<thead><tr><th>Type</th><th>Access Level</th><th>Data</th></tr></thead><tbody>';
+                    
+                    data.pending_records.forEach(record => {
+                        html += `<tr>
+                            <td>${record.record_type}</td>
+                            <td>${record.access_level}</td>
+                            <td><pre>${JSON.stringify(record.record_data, null, 2)}</pre></td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    recordsDiv.innerHTML = html;
+                    document.getElementById('mineButton').disabled = false;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('pendingRecords').innerHTML = 
+                    '<div class="alert alert-danger">Error loading pending records</div>';
+            }
+        }
+
+        // Mine records
+        document.getElementById('mineButton').addEventListener('click', async () => {
+    try {
+        const resultDiv = document.getElementById('miningResult');
+        resultDiv.innerHTML = '<div class="alert alert-info">Mining in progress...</div>';
+        
+        const response = await fetch('/mine');
+        const result = await response.json();
+        
+        if (result.error) {
+            throw new Error(result.message || result.error);
+        }
+        
+        resultDiv.innerHTML = `
+            <div class="alert alert-success">
+                <h6>Block Successfully Mined!</h6>
+                <p>Block Number: ${result.block_number}</p>
+                <p>Records in block: ${result.transactions.length}</p>
+            </div>`;
+        
+        loadPendingRecords();
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('miningResult').innerHTML = 
+            `<div class="alert alert-danger">Error during mining: ${error.message}</div>`;
+    }
+});
+
+        // Load pending records when page loads
+        loadPendingRecords();
+    </script>
+</body>
+</html>

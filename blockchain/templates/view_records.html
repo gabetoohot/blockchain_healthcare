@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>View Medical Records - EHR Blockchain</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>View Medical Records</h1>
+        <a href="/" class="btn btn-secondary mb-4">Back to Home</a>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Search Records</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Note:</strong>
+                    <ul>
+                        <li>If you're a patient, use your public key for both fields to see all your records</li>
+                        <li>If you're a provider, use the patient's public key and your public key to see records you have access to</li>
+                    </ul>
+                </div>
+                
+                <form id="viewRecordsForm">
+                    <div class="mb-3">
+                        <label class="form-label">Patient's Public Key</label>
+                        <input type="text" class="form-control" name="patient_public_key" required>
+                        <small class="text-muted">The public key of the patient whose records you want to view</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Requester's Public Key</label>
+                        <input type="text" class="form-control" name="requester_public_key" required>
+                        <small class="text-muted">Your public key (either as patient or healthcare provider)</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">View Records</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Records Display -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Medical Records</h5>
+            </div>
+            <div class="card-body">
+                <div id="recordsDisplay">
+                    <!-- Records will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('viewRecordsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const params = new URLSearchParams();
+            formData.forEach((value, key) => params.append(key, value));
+            
+            try {
+                const response = await fetch(`/medical_records/get?${params.toString()}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json();
+                displayRecords(result.medical_records);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error retrieving records: ' + error.message);
+            }
+        });
+
+        function displayRecords(records) {
+            const display = document.getElementById('recordsDisplay');
+            if (!records || records.length === 0) {
+                display.innerHTML = '<div class="alert alert-warning">No records found or no access permission</div>';
+                return;
+            }
+
+            let html = '<div class="table-responsive"><table class="table table-striped">';
+            html += `
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Record Type</th>
+                        <th>Provider</th>
+                        <th>Access Level</th>
+                        <th>Record Data</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            records.forEach(record => {
+                const date = new Date(record.timestamp * 1000).toLocaleString();
+                const recordData = JSON.stringify(record.record_data, null, 2);
+                
+                html += `
+                    <tr>
+                        <td>${date}</td>
+                        <td>${record.record_type}</td>
+                        <td>${record.provider_public_key.substring(0, 20)}...</td>
+                        <td><span class="badge bg-info">${record.access_level}</span></td>
+                        <td><pre style="max-height: 150px; overflow-y: auto;">${recordData}</pre></td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            display.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EHR Blockchain System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>EHR Blockchain System</h1>
+        <div class="mb-4">
+            <a href="/view_records" class="btn btn-primary">View Records</a>
+            <a href="/keygen" class="btn btn-secondary">Generate Keys</a>
+            <a href="/mining" class="btn btn-success">Mining Interface</a>
+        </div>
+
+        <!-- Sign Record Panel -->
+        <div class="card mt-4">
+            <div class="card-header">
+                Medical Record Form
+            </div>
+            <div class="card-body">
+                <form id="medicalForm">
+                    <div class="mb-3">
+                        <label class="form-label">Patient's Private Key (for signing)</label>
+                        <input type="password" class="form-control" id="signPrivateKey" required>
+                    </div>
+
+                    <!-- Structured Medical Record Form -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Record Type</label>
+                                <select class="form-control" id="recordType" required>
+                                    <option value="checkup">Regular Checkup</option>
+                                    <option value="emergency">Emergency Visit</option>
+                                    <option value="surgery">Surgery</option>
+                                    <option value="test">Medical Test</option>
+                                    <option value="prescription">Prescription</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Access Level</label>
+                                <select class="form-control" id="accessLevel" required>
+                                    <option value="private">Private</option>
+                                    <option value="limited">Limited</option>
+                                    <option value="full">Full</option>
+                                    <option value="emergency">Emergency</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Diagnosis</label>
+                        <input type="text" class="form-control" id="diagnosis" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Treatment/Prescription</label>
+                        <textarea class="form-control" id="treatment" rows="2" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" rows="2"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Date</label>
+                        <input type="date" class="form-control" id="recordDate" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Generate Signature</button>
+                </form>
+
+                <div class="mt-3">
+                    <label class="form-label">Generated Signature:</label>
+                    <input type="text" class="form-control" id="generatedSignature" readonly>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Record Panel -->
+        <div class="card mt-4">
+            <div class="card-header">
+                Submit Medical Record
+            </div>
+            <div class="card-body">
+                <form id="recordForm">
+                    <div class="mb-3">
+                        <label class="form-label">Patient Public Key</label>
+                        <input type="text" class="form-control" name="patient_public_key" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Provider Public Key</label>
+                        <input type="text" class="form-control" name="provider_public_key" required>
+                    </div>
+                    <div class="mb-3" style="display: none;">
+                        <input type="text" class="form-control" name="record_data" id="hiddenRecordData">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Signature</label>
+                        <input type="text" class="form-control" name="signature" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit Record</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Rest of your existing grant access panel code -->
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Handle medical form submission and signature generation
+        document.getElementById('medicalForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Collect form data into structured JSON
+            const recordData = {
+                type: document.getElementById('recordType').value,
+                access_level: document.getElementById('accessLevel').value,
+                diagnosis: document.getElementById('diagnosis').value,
+                treatment: document.getElementById('treatment').value,
+                notes: document.getElementById('notes').value,
+                date: document.getElementById('recordDate').value
+            };
+
+            // Store the record data for later use
+            document.getElementById('hiddenRecordData').value = JSON.stringify(recordData);
+
+            // Sign the data
+            const privateKey = document.getElementById('signPrivateKey').value;
+            
+            try {
+                const response = await fetch('/sign_data', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        private_key: privateKey,
+                        data: recordData
+                    })
+                });
+                const result = await response.json();
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                document.getElementById('generatedSignature').value = result.signature;
+                // Auto-fill the submission form signature
+                document.querySelector('input[name="signature"]').value = result.signature;
+            } catch (error) {
+                alert('Error generating signature: ' + error.message);
+            }
+        });
+
+        // Handle record submission
+        document.getElementById('recordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/medical_records/new', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(result.message);
+                    // Optionally add: await fetch('/mine'); // To mine the block immediately
+                } else {
+                    throw new Error(result.message || 'Error submitting record');
+                }
+            } catch (error) {
+                alert('Error submitting record: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
